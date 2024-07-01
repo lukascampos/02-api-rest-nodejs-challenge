@@ -3,11 +3,24 @@ import { FastifyInstance } from 'fastify'
 import { randomUUID } from 'crypto'
 import { knex } from '../../database'
 import z from 'zod'
+import { checkSessionIdExists } from '../../middlewares/check-sessionId-exists'
+import { Users } from 'knex/types/tables'
 
 export async function mealsRoutes(app: FastifyInstance) {
-  app.post('/', async (req, rep) => {
+  app.get('/', { preHandler: checkSessionIdExists }, async (req, rep) => {
+    const { sessionId } = req.cookies
+
+    const { id } = await knex('users').where({ session_id: sessionId }).first()
+
+    const meals = await knex('meals')
+      .where({ user_id: id })
+      .orderBy('created_at', 'desc')
+
+    return rep.send({ meals })
+  })
+
+  app.post('/', { preHandler: checkSessionIdExists }, async (req, rep) => {
     const createMealBodySchema = z.object({
-      user_id: z.string(),
       name: z.string(),
       description: z.string(),
       is_on_diet: z.boolean(),
@@ -15,13 +28,16 @@ export async function mealsRoutes(app: FastifyInstance) {
 
     const body = createMealBodySchema.parse(req.body)
 
-    if (!body.user_id) {
-      return rep.status(400).send('user_id required')
-    }
+    const { sessionId } = req.cookies
+
+    const user: Users = await knex('users')
+      .select('*')
+      .where({ session_id: sessionId })
+      .first()
 
     await knex('meals').insert({
       id: randomUUID(),
-      user_id: body.user_id,
+      user_id: user.id,
       name: body.name,
       description: body.description,
       is_on_diet: body.is_on_diet,
