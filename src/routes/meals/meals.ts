@@ -33,7 +33,13 @@ export async function mealsRoutes(app: FastifyInstance) {
         .where({ session_id: sessionId })
         .first()
 
-      const meal = await knex('meals').where({ user_id: id, id: mealId })
+      const meal = await knex('meals')
+        .where({ user_id: id, id: mealId })
+        .first()
+
+      if (!meal) {
+        return rep.status(404).send({ error: 'Meal not found' })
+      }
 
       return rep.status(201).send({ meal })
     },
@@ -52,6 +58,14 @@ export async function mealsRoutes(app: FastifyInstance) {
       const { id } = await knex('users')
         .where({ session_id: sessionId })
         .first()
+
+      const meal = await knex('meals')
+        .where({ user_id: id, id: mealId })
+        .first()
+
+      if (!meal) {
+        return rep.status(404).send({ error: 'Meal not found' })
+      }
 
       await knex('meals').delete().where({ user_id: id, id: mealId })
 
@@ -85,4 +99,46 @@ export async function mealsRoutes(app: FastifyInstance) {
 
     return rep.status(201).send()
   })
+
+  app.put(
+    '/:mealId',
+    { preHandler: checkSessionIdExists },
+    async (req, rep) => {
+      const paramsSchema = z.object({ mealId: z.string().uuid() })
+
+      const { mealId } = paramsSchema.parse(req.params)
+
+      const updateMealBodySchema = z.object({
+        name: z.string(),
+        description: z.string(),
+        is_on_diet: z.boolean(),
+      })
+
+      const body = updateMealBodySchema.parse(req.body)
+
+      const { sessionId } = req.cookies
+
+      const { id } = await knex('users')
+        .where({ session_id: sessionId })
+        .first()
+
+      const meal = await knex('meals')
+        .where({ user_id: id, id: mealId })
+        .first()
+
+      if (!meal) {
+        return rep.status(404).send({ error: 'Meal not found' })
+      }
+
+      await knex('meals')
+        .update({
+          name: body.name,
+          description: body.description,
+          is_on_diet: body.is_on_diet,
+        })
+        .where({ user_id: id, id: mealId })
+
+      return rep.status(204).send()
+    },
+  )
 }
