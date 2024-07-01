@@ -10,7 +10,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "fastify": "^4.28.1"
+    "@types/node": "^20.14.9",
+    "fastify": "^4.28.1",
+    "typescript": "^5.5.2"
   },
   "devDependencies": {
     "@rocketseat/eslint-config": "^2.2.2",
