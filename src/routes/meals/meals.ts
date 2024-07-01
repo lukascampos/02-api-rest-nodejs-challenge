@@ -19,6 +19,26 @@ export async function mealsRoutes(app: FastifyInstance) {
     return rep.send({ meals })
   })
 
+  app.delete(
+    '/:mealId',
+    { preHandler: checkSessionIdExists },
+    async (req, rep) => {
+      const paramsSchema = z.object({ mealId: z.string().uuid() })
+
+      const { mealId } = paramsSchema.parse(req.params)
+
+      const { sessionId } = req.cookies
+
+      const { id } = await knex('users')
+        .where({ session_id: sessionId })
+        .first()
+
+      await knex('meals').delete().where({ user_id: id, id: mealId })
+
+      return rep.status(204).send()
+    },
+  )
+
   app.post('/', { preHandler: checkSessionIdExists }, async (req, rep) => {
     const createMealBodySchema = z.object({
       name: z.string(),
@@ -30,14 +50,14 @@ export async function mealsRoutes(app: FastifyInstance) {
 
     const { sessionId } = req.cookies
 
-    const user: Users = await knex('users')
+    const { id }: Users = await knex('users')
       .select('*')
       .where({ session_id: sessionId })
       .first()
 
     await knex('meals').insert({
       id: randomUUID(),
-      user_id: user.id,
+      user_id: id,
       name: body.name,
       description: body.description,
       is_on_diet: body.is_on_diet,
